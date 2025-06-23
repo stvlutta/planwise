@@ -3,21 +3,26 @@ from flask_cors import CORS
 from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity
 from models import db, User, Task, Project, ProjectCollaborator, bcrypt
+from config import Config
 import os
 from datetime import datetime, timedelta
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL') or f'sqlite:///{os.path.join(os.path.dirname(__file__), "instance", "task_manager.db")}'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY') or 'jwt-secret-string'
+app.config.from_object(Config)
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=1)
 app.json.compact = False
+
+# Handle PostgreSQL URL format for Render
+database_url = app.config['SQLALCHEMY_DATABASE_URI']
+if database_url and database_url.startswith('postgres://'):
+    database_url = database_url.replace('postgres://', 'postgresql://', 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 
 db.init_app(app)
 bcrypt.init_app(app)
 jwt = JWTManager(app)
 migrate = Migrate(app, db)
-CORS(app)
+CORS(app, origins=app.config['CORS_ORIGINS'])
 
 # Authentication routes
 @app.route('/auth/signup', methods=['POST'])
